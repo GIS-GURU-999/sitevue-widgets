@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body {
+    font-family: sans-serif;
+    font-size: 13px;
+    color: #333;
+    padding: 10px;
+    margin: 0;
+    background: transparent;
+  }
+  .section-title {
+    font-weight: bold;
+    color: #c8830a;
+    font-size: 14px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 4px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .stat-label { color: #666; }
+  .stat-value { font-weight: bold; }
+  .yes  { color: #2e7d32; }
+  .no   { color: #c62828; }
+  .loading { color: #999; font-style: italic; }
+  .disclaimer {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 10px;
+    text-align: center;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div id="content">
+  <div class="loading">Select a site to load incentive data...</div>
+</div>
+
+<script>
+  function getUrlParam(name) {
+    return new URLSearchParams(window.location.search).get(name);
+  }
+
+  var lat = getUrlParam("lat");
+  var lon = getUrlParam("lon");
+
+  if (lat && lon) {
+    loadIncentiveData(parseFloat(lat), parseFloat(lon));
+  }
+
+  function loadIncentiveData(lat, lon) {
+    document.getElementById("content").innerHTML =
+      '<div class="loading">⏳ Loading incentive data...</div>';
+
+    // Run all 3 API calls in parallel
+    var fccUrl = "https://geo.fcc.gov/api/census/block/find?latitude=" +
+      lat + "&longitude=" + lon + "&format=json";
+
+    var hubzoneUrl = "https://maps.certify.sba.gov/api/hubzone.json?lat=" +
+      lat + "&long=" + lon;
+
+    var ozUrl = "https://api.census.gov/data/2022/acs/acs5" +
+      "?get=B17001_002E,B17001_001E,B19013_001E" +
+      "&for=tract:*&in=state:";
+
+    // Step 1 — FCC to get FIPS
+    fetch(fccUrl)
+      .then(function(r) { return r.json(); })
+      .then(function(fcc) {
+        var stateFIPS  = fcc.State.FIPS;
+        var countyFIPS = fcc.County.FIPS.substring(2);
+        var tractFIPS  = fcc.Block.FIPS.substring(5, 11);
+        var countyName = fcc.County.name;
+        var stateName  = fcc.State.name;
+
+        // Step 2 — HUBZone API
+        var hubPromise = fetch(hubzoneUrl)
+          .then(function(r) { return r.json(); })
+          .catch(function() { return null; });
+
+        // Step 3 — Census tract poverty data
+        var tractUrl = "https://api.census.gov/data/2022/acs/acs5" +
+          "?get=B17001_002E,B17001_001E" +
+          "&for=tract:" + tractFIPS +
+          "&in=state:" + stateFIPS +
+          "&in=county:" + countyFIPS;
+
+        var tractPromise = fetch(tractUrl)
+          .then(function(r) { return r.json(); })
+          .catch(function() { return null; });
+
+        return Promise.all([hubPromise, tractPromise])
+          .then(function(results) {
+            displayData(results[0], results[1],
+              countyName, stateName, stateFIPS, tractFIPS);
+          });
+      })
+      .catch(function(err) {
+        document.getElementById("content").innerHTML =
+          '<div class="loading">⚠️ Could not load incentive data.</div>';
+        console.error(err);
+      });
+  }
+
+  function displayData(hubData, tractData, countyName, stateName, stateFIPS, tractFIPS) {
+
+    // HUBZone result
+    var hubzone = "Unknown";
+    if (hubData && hubData.hubzone) {
+      hubzone = hubData.hubzone === "Y" ? "yes" : "no";
+    }
+
+    // Poverty rate from Census tract
+    var povertyRate = "N/A";
+    if (tractData && tractData[1]) {
+      var poor  = Number(tractData[1][0]);
+      var total = Number(tractData[1][1]);
+      if (total > 0) {
+        povertyRate = ((poor / total) * 100).toFixed(1) + "%";
+      }
+    }
+
+    // Opportunity Zone — determined by low-income community tract
+    // OZ tracts are low-income community tracts nominated by governors
+    // We use poverty rate as a proxy indicator
+    var povertyNum = parseFloat(povertyRate);
+    var ozIndicator = !isNaN(povertyNum) && povertyNum >= 20
+      ? "yes" : "no";
+
+    // Build state incentives URL
+    var stateIncentivesUrl =
+      "https://www.google.com/search?q=" +
+      stateName.replace(/ /g, "+") +
+      "+state+industrial+development+incentives+tax+credits";
+
+    function badge(val) {
+      if (val === "yes") return '<span class="yes">✅ Yes</span>';
+      if (val === "no")  return '<span class="no">❌ No</span>';
+      return '<span style="color:#999;">— Unknown</span>';
+    }
+
+    document.getElementById("content").innerHTML =
+      '<div class="section-title">💼 Investment Incentives</div>' +
+
+      '<div class="stat-row">' +
+        '<span class="stat-label">🏛️ HUBZone Designated</span>' +
+        '<span class="stat-value">' + badge(hubzone) + '</span>' +
+      '</div>' +
+
+      '<div class="stat-row">' +
+        '<span class="stat-label">🏦 Opportunity Zone (Est.)</span>' +
+        '<span class="stat-value">' + badge(ozIndicator) + '</span>' +
+      '</div>' +
+
+      '<div class="stat-row">' +
+        '<span class="stat-label">📉 Tract Poverty Rate</span>' +
+        '<span class="stat-value">' + povertyRate + '</span>' +
+      '</div>' +
+
+      '<div class="stat-row">' +
+        '<span class="stat-label">📍 Census Tract</span>' +
+        '<span class="stat-value">' + tractFIPS + '</span>' +
+      '</div>' +
+
+      '<div class="stat-row">' +
+        '<span class="stat-label">📌 County</span>' +
+        '<span class="stat-value">' + countyName + ', ' + stateName + '</span>' +
+      '</div>' +
+
+      '<div style="margin-top:10px;text-align:center;">' +
+        '<a href="' + stateIncentivesUrl + '" target="_blank" ' +
+        'style="color:#c8830a;font-size:12px;text-decoration:none;">' +
+        '🔗 View ' + stateName + ' Incentives Guide</a>' +
+      '</div>' +
+
+      '<div class="disclaimer">' +
+        '⚠️ HUBZone and OZ status are estimates based on public APIs.<br>' +
+        'Verify with SBA and CDFI Fund before making investment decisions.' +
+      '</div>';
+  }
+</script>
+</body>
+</html>
