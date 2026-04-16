@@ -21,7 +21,7 @@
   .stat-row {
     display: flex;
     justify-content: space-between;
-    padding: 5px 0;
+    padding: 6px 0;
     border-bottom: 1px solid #f0f0f0;
   }
   .stat-label { color: #666; }
@@ -39,7 +39,7 @@
 <body>
 
 <div id="content">
-  <div class="loading">Select a site to load incentive data...</div>
+  <div class="loading">Select a site to load workforce data...</div>
 </div>
 
 <script>
@@ -51,13 +51,14 @@
   var lon = getUrlParam("lon");
 
   if (lat && lon) {
-    loadIncentiveData(parseFloat(lat), parseFloat(lon));
+    loadWorkforceData(parseFloat(lat), parseFloat(lon));
   }
 
-  function loadIncentiveData(lat, lon) {
+  function loadWorkforceData(lat, lon) {
     document.getElementById("content").innerHTML =
-      '<div class="loading">⏳Loading incentive data...</div>';
+      '<div class="loading">⏳ Loading workforce data...</div>';
 
+    // Step 1 — FCC API to get FIPS codes
     var fccUrl = "https://geo.fcc.gov/api/census/block/find?latitude=" +
       lat + "&longitude=" + lon + "&format=json";
 
@@ -66,96 +67,80 @@
       .then(function(fcc) {
         var stateFIPS  = fcc.State.FIPS;
         var countyFIPS = fcc.County.FIPS.substring(2);
-        var tractFIPS  = fcc.Block.FIPS.substring(5, 11);
+        var countyName = fcc.County.name;
         var stateName  = fcc.State.name;
 
-        var hubzoneUrl = "https://maps.certify.sba.gov/api/hubzone.json?lat=" +
-          lat + "&long=" + lon;
+        // Step 2 — Census ACS workforce variables
+        var censusUrl = "https://api.census.gov/data/2022/acs/acs5" +
+          "?get=C24030_006E,C24030_048E,B19301_001E,B25077_001E,B23025_002E" +
+          "&for=county:" + countyFIPS +
+          "&in=state:" + stateFIPS;
 
-        var tractUrl = "https://api.census.gov/data/2022/acs/acs5" +
-          "?get=B17001_002E,B17001_001E" +
-          "&for=tract:" + tractFIPS +
-          "&in=state:" + stateFIPS +
-          "&in=county:" + countyFIPS;
-
-        var hubPromise = fetch(hubzoneUrl)
+        return fetch(censusUrl)
           .then(function(r) { return r.json(); })
-          .catch(function() { return null; });
-
-        var tractPromise = fetch(tractUrl)
-          .then(function(r) { return r.json(); })
-          .catch(function() { return null; });
-
-        return Promise.all([hubPromise, tractPromise])
-          .then(function(results) {
-            displayData(results[0], results[1], stateName);
+          .then(function(census) {
+            displayData(census, countyName, stateName);
           });
       })
       .catch(function(err) {
         document.getElementById("content").innerHTML =
-          '<div class="loading">Could not load incentive data.</div>';
+          '<div class="loading">⚠️ Could not load workforce data.</div>';
         console.error(err);
       });
   }
 
-  function badge(val) {
-    if (val === "yes") return '<span style="color:#333;">&#10004; Yes</span>';
-    if (val === "no")  return '<span style="color:#333;">&#10006; No</span>';
-    return '<span style="color:#999;">— Unknown</span>';
-  }
+  function displayData(census, countyName, stateName) {
+    var headers = census[0];
+    var values  = census[1];
 
-  function displayData(hubData, tractData, stateName) {
+    var d = {};
+    headers.forEach(function(h, i) { d[h] = values[i]; });
 
-    var hubzone = "unknown";
-    if (hubData && hubData.hubzone) {
-      hubzone = hubData.hubzone === "Y" ? "yes" : "no";
-    }
+    // Format values
+    var manufacturing  = Number(d["C24030_006E"]).toLocaleString();
+    var transportation = Number(d["C24030_048E"]).toLocaleString();
+    var perCapitaInc   = "$" + Number(d["B19301_001E"]).toLocaleString();
+    var medHomeValue   = "$" + Number(d["B25077_001E"]).toLocaleString();
+    var laborForce     = Number(d["B23025_002E"]).toLocaleString();
 
-    var povertyRate = "N/A";
-    var povertyNum  = 0;
-    if (tractData && tractData[1]) {
-      var poor  = Number(tractData[1][0]);
-      var total = Number(tractData[1][1]);
-      if (total > 0) {
-        povertyNum  = (poor / total) * 100;
-        povertyRate = povertyNum.toFixed(1) + "%";
-      }
-    }
-
-    var ozIndicator = povertyNum >= 20 ? "yes" : "no";
-
-    var stateIncentivesUrl =
-      "https://www.google.com/search?q=" +
-      stateName.replace(/ /g, "+") +
-      "+state+industrial+development+incentives+tax+credits";
+    // Handle negative/null values
+    if (Number(d["C24030_006E"]) < 0) manufacturing  = "N/A";
+    if (Number(d["C24030_048E"]) < 0) transportation = "N/A";
+    if (Number(d["B19301_001E"]) < 0) perCapitaInc   = "N/A";
+    if (Number(d["B25077_001E"]) < 0) medHomeValue   = "N/A";
+    if (Number(d["B23025_002E"]) < 0) laborForce     = "N/A";
 
     document.getElementById("content").innerHTML =
-      '<div class="section-title">💼 Investment Incentives</div>' +
+      '<div class="section-title">👷 Workforce & Labor Market</div>' +
 
       '<div class="stat-row">' +
-        '<span class="stat-label">🏛️ HUBZone Designated</span>' +
-        '<span class="stat-value">' + badge(hubzone) + '</span>' +
+        '<span class="stat-label">🏭 Manufacturing Workers</span>' +
+        '<span class="stat-value">' + manufacturing + '</span>' +
       '</div>' +
 
       '<div class="stat-row">' +
-        '<span class="stat-label">🏦 Opportunity Zone (Est.)</span>' +
-        '<span class="stat-value">' + badge(ozIndicator) + '</span>' +
+        '<span class="stat-label">🚛 Transportation Workers</span>' +
+        '<span class="stat-value">' + transportation + '</span>' +
       '</div>' +
 
       '<div class="stat-row">' +
-        '<span class="stat-label">📉 Tract Poverty Rate</span>' +
-        '<span class="stat-value">' + povertyRate + '</span>' +
+        '<span class="stat-label">💵 Per Capita Income</span>' +
+        '<span class="stat-value">' + perCapitaInc + '</span>' +
       '</div>' +
 
-      '<div style="margin-top:10px;text-align:center;">' +
-        '<a href="' + stateIncentivesUrl + '" target="_blank" ' +
-        'style="color:#c8830a;font-size:12px;text-decoration:none;">' +
-        '🔗 View ' + stateName + ' Incentives Guide</a>' +
+      '<div class="stat-row">' +
+        '<span class="stat-label">🏠 Median Home Value</span>' +
+        '<span class="stat-value">' + medHomeValue + '</span>' +
+      '</div>' +
+
+      '<div class="stat-row">' +
+        '<span class="stat-label">👷 Total Labor Force</span>' +
+        '<span class="stat-value">' + laborForce + '</span>' +
       '</div>' +
 
       '<div class="disclaimer">' +
-        '⚠️ HUBZone and OZ status are estimates based on public APIs.<br>' +
-        'Verify with SBA and CDFI Fund before making investment decisions.' +
+        '⚠️ Data reflects the county in which the site is located.<br>' +
+        'Source: US Census Bureau ACS 5-Year Estimates (2022)' +
       '</div>';
   }
 </script>
