@@ -109,6 +109,7 @@
     var households = Number(d["B11001_001E"]).toLocaleString();
 
     document.getElementById("content").innerHTML =
+      '<div class="section-title">📊 Socio-Economic Details</div>' +
       '<div class="county-title">📍 ' + countyName + ', ' + stateName + '</div>' +
       '<div class="stat-row"><span class="stat-label">👥 Total Population</span><span class="stat-value">' + totalPop + '</span></div>' +
       '<div class="stat-row"><span class="stat-label">💰 Median Household Income</span><span class="stat-value">' + medIncome + '</span></div>' +
