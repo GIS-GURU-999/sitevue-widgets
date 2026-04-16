@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body {
+    font-family: sans-serif;
+    font-size: 13px;
+    color: #333;
+    padding: 10px;
+    margin: 0;
+    background: transparent;
+  }
+  .county-title {
+    font-weight: bold;
+    color: #c8830a;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .stat-label { color: #666; }
+  .stat-value { font-weight: bold; color: #333; }
+  .loading { color: #999; font-style: italic; }
+  .disclaimer {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 10px;
+    text-align: center;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div id="content">
+  <div class="loading">Select a site on the map to load data...</div>
+</div>
+
+<script>
+  // Read lat/lon from URL parameters
+  function getUrlParam(name) {
+    var params = new URLSearchParams(window.location.search);
+    return params.get(name);
+  }
+
+  var lat = getUrlParam("lat");
+  var lon = getUrlParam("lon");
+
+  if (lat && lon) {
+    loadCensusData(parseFloat(lat), parseFloat(lon));
+  }
+
+  function loadCensusData(lat, lon) {
+    document.getElementById("content").innerHTML =
+      '<div class="loading">⏳ Loading socio-economic data...</div>';
+
+    // FCC API — free, no key needed
+    var fccUrl = "https://geo.fcc.gov/api/census/block/find?latitude=" +
+      lat + "&longitude=" + lon + "&format=json";
+
+    fetch(fccUrl)
+      .then(function(res) { return res.json(); })
+      .then(function(fcc) {
+        var stateFIPS  = fcc.State.FIPS;
+        var countyFIPS = fcc.County.FIPS.substring(2);
+        var countyName = fcc.County.name;
+        var stateName  = fcc.State.name;
+
+        // Census API — no key for low-volume public use
+        var censusUrl = "https://api.census.gov/data/2022/acs/acs5" +
+          "?get=B01003_001E,B19013_001E,B23025_005E,B23025_003E," +
+          "B15003_022E,B01002_001E,B11001_001E" +
+          "&for=county:" + countyFIPS +
+          "&in=state:" + stateFIPS;
+
+        return fetch(censusUrl)
+          .then(function(res) { return res.json(); })
+          .then(function(census) {
+            displayData(census, countyName, stateName);
+          });
+      })
+      .catch(function(err) {
+        document.getElementById("content").innerHTML =
+          '<div class="loading">⚠️ Could not load data.</div>';
+        console.error(err);
+      });
+  }
+
+  function displayData(census, countyName, stateName) {
+    var headers = census[0];
+    var values  = census[1];
+
+    var d = {};
+    headers.forEach(function(h, i) { d[h] = values[i]; });
+
+    var totalPop   = Number(d["B01003_001E"]).toLocaleString();
+    var medIncome  = "$" + Number(d["B19013_001E"]).toLocaleString();
+    var laborForce = Number(d["B23025_003E"]);
+    var unemployed = Number(d["B23025_005E"]);
+    var unempRate  = laborForce > 0
+      ? ((unemployed / laborForce) * 100).toFixed(1) + "%"
+      : "N/A";
+    var bachelors  = Number(d["B15003_022E"]).toLocaleString();
+    var medAge     = Number(d["B01002_001E"]).toFixed(1);
+    var households = Number(d["B11001_001E"]).toLocaleString();
+
+    document.getElementById("content").innerHTML =
+      '<div class="county-title">📍 ' + countyName + ', ' + stateName + '</div>' +
+      '<div class="stat-row"><span class="stat-label">👥 Total Population</span><span class="stat-value">' + totalPop + '</span></div>' +
+      '<div class="stat-row"><span class="stat-label">💰 Median Household Income</span><span class="stat-value">' + medIncome + '</span></div>' +
+      '<div class="stat-row"><span class="stat-label">📉 Unemployment Rate</span><span class="stat-value">' + unempRate + '</span></div>' +
+      '<div class="stat-row"><span class="stat-label">🎓 Bachelor\'s Degree Holders</span><span class="stat-value">' + bachelors + '</span></div>' +
+      '<div class="stat-row"><span class="stat-label">🏠 Total Households</span><span class="stat-value">' + households + '</span></div>' +
+      '<div class="stat-row"><span class="stat-label">📅 Median Age</span><span class="stat-value">' + medAge + '</span></div>' +
+      '<div class="disclaimer">⚠️ Data reflects the county in which the site is located.<br>Source: US Census Bureau ACS 5-Year Estimates (2022)</div>';
+  }
+</script>
+</body>
+</html>
