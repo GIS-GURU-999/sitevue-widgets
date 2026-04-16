@@ -14,7 +14,7 @@
     font-weight: bold;
     color: #c8830a;
     margin-bottom: 8px;
-    font-size: 14px;
+    font-size: 13px;
   }
   .stat-row {
     display: flex;
@@ -109,7 +109,7 @@
     var households = Number(d["B11001_001E"]).toLocaleString();
 
     document.getElementById("content").innerHTML =
-      '<div style="color:#c8830a;font-weight:bold;font-size:13px;margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:4px;">📊 Socio-Economic Details</div>' +
+      '<div style="color:#c8830a;font-weight:bold;font-size:14px;margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:4px;">📊 Socio-Economic Details</div>' +
       '<div class="county-title">📍 ' + countyName + ', ' + stateName + '</div>' +
       '<div class="stat-row"><span class="stat-label">👥 Total Population</span><span class="stat-value">' + totalPop + '</span></div>' +
       '<div class="stat-row"><span class="stat-label">💰 Median Household Income</span><span class="stat-value">' + medIncome + '</span></div>' +
