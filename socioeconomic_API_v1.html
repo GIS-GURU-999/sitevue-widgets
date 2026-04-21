@@ -109,14 +109,14 @@
     var households = Number(d["B11001_001E"]).toLocaleString();
 
     document.getElementById("content").innerHTML =
-      '<div style="color:#c8830a;font-weight:bold;font-size:14px;margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:4px;">📊 Socio-Economic Details</div>' +
-      '<div class="county-title">📍 ' + countyName + ', ' + stateName + '</div>' +
-      '<div class="stat-row"><span class="stat-label"><span style="color:#E0A52A;">■</span> Total Population</span><span class="stat-value">' + totalPop + '</span></div>' +
-      '<div class="stat-row"><span class="stat-label">💰 Median Household Income</span><span class="stat-value">' + medIncome + '</span></div>' +
-      '<div class="stat-row"><span class="stat-label">📉 Unemployment Rate</span><span class="stat-value">' + unempRate + '</span></div>' +
-      '<div class="stat-row"><span class="stat-label">🎓 Bachelor\'s Degree Holders</span><span class="stat-value">' + bachelors + '</span></div>' +
-      '<div class="stat-row"><span class="stat-label">🏠 Total Households</span><span class="stat-value">' + households + '</span></div>' +
-      '<div class="stat-row"><span class="stat-label">📅 Median Age</span><span class="stat-value">' + medAge + '</span></div>' +
+      '<div style="color:#c8830a;font-weight:bold;font-size:14px;margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:4px;"><span style="color:#C8830A;">◆</span> Socio-Economic Details</div>' +
+      '<div class="county-title"><span style="color:#FFD35A;">■</span> ' + countyName + ', ' + stateName + '</div>' +
+      '<div class="stat-row"><span class="stat-label"><span style="color:#D4941A;">■</span> Total Population</span><span class="stat-value">' + totalPop + '</span></div>' +
+      '<div class="stat-row"><span class="stat-label"><span style="color:#D4941A;">■</span> Median Household Income</span><span class="stat-value">' + medIncome + '</span></div>' +
+      '<div class="stat-row"><span class="stat-label"><span style="color:#D4941A;">■</span> Unemployment Rate</span><span class="stat-value">' + unempRate + '</span></div>' +
+      '<div class="stat-row"><span class="stat-label"><span style="color:#D4941A;">■</span> Bachelor\'s Degree Holders</span><span class="stat-value">' + bachelors + '</span></div>' +
+      '<div class="stat-row"><span class="stat-label"><span style="color:#D4941A;">■</span> Total Households</span><span class="stat-value">' + households + '</span></div>' +
+      '<div class="stat-row"><span class="stat-label"><span style="color:#D4941A;">■</span> Median Age</span><span class="stat-value">' + medAge + '</span></div>' +
       '<div class="disclaimer">⚠️ Data reflects the county in which the site is located.<br>Source: US Census Bureau ACS 5-Year Estimates (2022)</div>';
   }
 </script>
