@@ -41,7 +41,6 @@
 </div>
 
 <script>
-  // Read lat/lon from URL parameters
   function getUrlParam(name) {
     var params = new URLSearchParams(window.location.search);
     return params.get(name);
@@ -58,25 +57,30 @@
     document.getElementById("content").innerHTML =
       '<div class="loading">⏳ Loading socio-economic data...</div>';
 
-    // Census Geocoder — replaces the defunct FCC API
-    var geoUrl = "https://geocoding.geo.census.gov/geocoder/geographies/coordinates" +
-      "?x=" + lon + "&y=" + lat +
-      "&benchmark=Public_AR_Current&vintage=Current_Current" +
-      "&layers=Counties&format=json";
+    // TIGERweb ArcGIS REST — CORS-enabled, no key needed
+    var tigerUrl = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/86/query" +
+      "?geometry=" + lon + "," + lat +
+      "&geometryType=esriGeometryPoint" +
+      "&inSR=4326&spatialRel=esriSpatialRelIntersects" +
+      "&outFields=STATE,COUNTY,BASENAME,STUSAB" +
+      "&returnGeometry=false&f=json";
 
-    fetch(geoUrl)
+    fetch(tigerUrl)
       .then(function(res) { return res.json(); })
-      .then(function(geo) {
-        var county = geo.result.geographies.Counties[0];
-        var stateFIPS  = county.STATE;
-        var countyFIPS = county.COUNTY;
+      .then(function(tiger) {
+        var attrs = tiger.features[0].attributes;
+        var stateFIPS  = attrs.STATE;
+        var countyFIPS = attrs.COUNTY;
+        var countyName = attrs.BASENAME;
+        var stateAbbr  = attrs.STUSAB;
 
-        // Census ACS API — no key for low-volume public use
+        // Census ACS API — requires API key
         var censusUrl = "https://api.census.gov/data/2022/acs/acs5" +
           "?get=B01003_001E,B19013_001E,B23025_005E,B23025_003E," +
           "B15003_022E,B01002_001E,B11001_001E,NAME" +
           "&for=county:" + countyFIPS +
-          "&in=state:" + stateFIPS;
+          "&in=state:" + stateFIPS +
+          "&key=YOUR_CENSUS_API_KEY_HERE";
 
         return fetch(censusUrl)
           .then(function(res) { return res.json(); })
@@ -84,7 +88,7 @@
             var nameIdx = census[0].indexOf("NAME");
             var fullName = census[1][nameIdx];
             var parts = fullName.split(", ");
-            displayData(census, parts[0], parts[1] || "");
+            displayData(census, parts[0], parts[1] || stateAbbr);
           });
       })
       .catch(function(err) {
