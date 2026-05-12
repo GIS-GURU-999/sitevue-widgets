@@ -58,29 +58,33 @@
     document.getElementById("content").innerHTML =
       '<div class="loading">⏳ Loading socio-economic data...</div>';
 
-    // FCC API — free, no key needed
-    var fccUrl = "https://geo.fcc.gov/api/census/block/find?latitude=" +
-      lat + "&longitude=" + lon + "&format=json";
+    // Census Geocoder — replaces the defunct FCC API
+    var geoUrl = "https://geocoding.geo.census.gov/geocoder/geographies/coordinates" +
+      "?x=" + lon + "&y=" + lat +
+      "&benchmark=Public_AR_Current&vintage=Current_Current" +
+      "&layers=Counties&format=json";
 
-    fetch(fccUrl)
+    fetch(geoUrl)
       .then(function(res) { return res.json(); })
-      .then(function(fcc) {
-        var stateFIPS  = fcc.State.FIPS;
-        var countyFIPS = fcc.County.FIPS.substring(2);
-        var countyName = fcc.County.name;
-        var stateName  = fcc.State.name;
+      .then(function(geo) {
+        var county = geo.result.geographies.Counties[0];
+        var stateFIPS  = county.STATE;
+        var countyFIPS = county.COUNTY;
 
-        // Census API — no key for low-volume public use
+        // Census ACS API — no key for low-volume public use
         var censusUrl = "https://api.census.gov/data/2022/acs/acs5" +
           "?get=B01003_001E,B19013_001E,B23025_005E,B23025_003E," +
-          "B15003_022E,B01002_001E,B11001_001E" +
+          "B15003_022E,B01002_001E,B11001_001E,NAME" +
           "&for=county:" + countyFIPS +
           "&in=state:" + stateFIPS;
 
         return fetch(censusUrl)
           .then(function(res) { return res.json(); })
           .then(function(census) {
-            displayData(census, countyName, stateName);
+            var nameIdx = census[0].indexOf("NAME");
+            var fullName = census[1][nameIdx];
+            var parts = fullName.split(", ");
+            displayData(census, parts[0], parts[1] || "");
           });
       })
       .catch(function(err) {
