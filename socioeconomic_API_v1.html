@@ -57,24 +57,26 @@
     document.getElementById("content").innerHTML =
       '<div class="loading">⏳ Loading socio-economic data...</div>';
 
-    // TIGERweb ArcGIS REST — CORS-enabled, no key needed
-    var tigerUrl = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/86/query" +
+    // TIGERweb — State_County layer 1, fields: STATE, COUNTY, BASENAME
+    var tigerUrl = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1/query" +
       "?geometry=" + lon + "," + lat +
       "&geometryType=esriGeometryPoint" +
       "&inSR=4326&spatialRel=esriSpatialRelIntersects" +
-      "&outFields=STATE,COUNTY,BASENAME,STUSAB" +
+      "&outFields=STATE,COUNTY,BASENAME" +
       "&returnGeometry=false&f=json";
 
     fetch(tigerUrl)
       .then(function(res) { return res.json(); })
       .then(function(tiger) {
+        if (!tiger.features || tiger.features.length === 0) {
+          throw new Error("No county found for coordinates");
+        }
         var attrs = tiger.features[0].attributes;
         var stateFIPS  = attrs.STATE;
         var countyFIPS = attrs.COUNTY;
         var countyName = attrs.BASENAME;
-        var stateAbbr  = attrs.STUSAB;
 
-        // Census ACS API — requires API key
+        // Census ACS API
         var censusUrl = "https://api.census.gov/data/2022/acs/acs5" +
           "?get=B01003_001E,B19013_001E,B23025_005E,B23025_003E," +
           "B15003_022E,B01002_001E,B11001_001E,NAME" +
@@ -88,12 +90,12 @@
             var nameIdx = census[0].indexOf("NAME");
             var fullName = census[1][nameIdx];
             var parts = fullName.split(", ");
-            displayData(census, parts[0], parts[1] || stateAbbr);
+            displayData(census, parts[0], parts[1] || countyName);
           });
       })
       .catch(function(err) {
         document.getElementById("content").innerHTML =
-          '<div class="loading">⚠️ Could not load data.</div>';
+          '<div class="loading">⚠️ Could not load data: ' + err.message + '</div>';
         console.error(err);
       });
   }
