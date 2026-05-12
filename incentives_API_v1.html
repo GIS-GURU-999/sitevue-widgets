@@ -58,33 +58,44 @@
     document.getElementById("content").innerHTML =
       '<div class="loading">⏳ Loading workforce data...</div>';
 
-    // Step 1 — FCC API to get FIPS codes
-    var fccUrl = "https://geo.fcc.gov/api/census/block/find?latitude=" +
-      lat + "&longitude=" + lon + "&format=json";
+    // Step 1 — TIGERweb to get FIPS codes (replaces dead FCC API)
+    var tigerUrl = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1/query" +
+      "?geometry=" + lon + "," + lat +
+      "&geometryType=esriGeometryPoint" +
+      "&inSR=4326&spatialRel=esriSpatialRelIntersects" +
+      "&outFields=STATE,COUNTY,BASENAME" +
+      "&returnGeometry=false&f=json";
 
-    fetch(fccUrl)
+    fetch(tigerUrl)
       .then(function(r) { return r.json(); })
-      .then(function(fcc) {
-        var stateFIPS  = fcc.State.FIPS;
-        var countyFIPS = fcc.County.FIPS.substring(2);
-        var countyName = fcc.County.name;
-        var stateName  = fcc.State.name;
+      .then(function(tiger) {
+        if (!tiger.features || tiger.features.length === 0) {
+          throw new Error("No county found for coordinates");
+        }
+        var attrs = tiger.features[0].attributes;
+        var stateFIPS  = attrs.STATE;
+        var countyFIPS = attrs.COUNTY;
+        var countyName = attrs.BASENAME;
 
         // Step 2 — Census ACS workforce variables
         var censusUrl = "https://api.census.gov/data/2022/acs/acs5" +
-          "?get=C24030_006E,C24030_048E,B19301_001E,B25077_001E,B23025_002E" +
+          "?get=C24030_006E,C24030_048E,B19301_001E,B25077_001E,B23025_002E,NAME" +
           "&for=county:" + countyFIPS +
-          "&in=state:" + stateFIPS;
+          "&in=state:" + stateFIPS +
+          "&key=YOUR_CENSUS_API_KEY_HERE";
 
         return fetch(censusUrl)
           .then(function(r) { return r.json(); })
           .then(function(census) {
-            displayData(census, countyName, stateName);
+            var nameIdx = census[0].indexOf("NAME");
+            var fullName = census[1][nameIdx];
+            var parts = fullName.split(", ");
+            displayData(census, parts[0], parts[1] || countyName);
           });
       })
       .catch(function(err) {
         document.getElementById("content").innerHTML =
-          '<div class="loading">⚠️ Could not load data.</div>';
+          '<div class="loading">⚠️ Could not load data: ' + err.message + '</div>';
         console.error(err);
       });
   }
